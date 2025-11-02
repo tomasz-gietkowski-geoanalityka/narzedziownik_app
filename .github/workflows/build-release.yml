@@ -6,7 +6,7 @@ on:
       - "v*.*.*"   # np. v1.0.0
 
 env:
-  PLUGIN_NAME: narzedziownik_app   # NAZWA katalogu top-level w ZIPie (PEP8/identifier!)
+  PLUGIN_NAME: narzedziownik_app   # NAZWA top-level w ZIP (musi być valid Python identifier)
 
 jobs:
   build:
@@ -17,30 +17,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      # (opcjonalnie) pobierz wersję z taga, np. v1.2.3
-      - name: Derive version from tag
-        id: ver
-        run: |
-          TAG="${GITHUB_REF##*/}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
-
       - name: Prepare staging tree
         run: |
           mkdir -p dist/${{ env.PLUGIN_NAME }}
-          # skopiuj do stagingu WYŁĄCZNIE to, co ma być w wtyczce:
-          rsync -av --exclude '.git' --exclude '.github' --exclude 'dist' \
-                    --exclude 'tests' --exclude '*.psd' --exclude '*.ai' \
-                    --exclude '.gitignore' --exclude '.gitattributes' \
-                    ./ dist/${{ env.PLUGIN_NAME }}/
+          # skopiuj tylko zawartość wtyczki:
+          rsync -av \
+            --exclude '.git' --exclude '.github' --exclude 'dist' \
+            --exclude 'tests' --exclude '*.psd' --exclude '*.ai' \
+            --exclude '.gitignore' --exclude '.gitattributes' \
+            ./ dist/${{ env.PLUGIN_NAME }}/
 
-          # (opcjonalnie) podmień wersję w metadata.txt na wersję z taga
-          # sed -i działa na linux; upewnij się, że plik to "metadata.txt"
-          if [ -f "dist/${{ env.PLUGIN_NAME }}/metadata.txt" ]; then
-            sed -i -E "s/^version=.*$/version=${{ steps.ver.outputs.version }}/" dist/${{ env.PLUGIN_NAME }}/metadata.txt
-          fi
-
-          # szybki sanity check plików wymaganych przez QGIS:
+          # sanity check plików wymaganych przez QGIS:
           test -f dist/${{ env.PLUGIN_NAME }}/metadata.txt
           test -f dist/${{ env.PLUGIN_NAME }}/__init__.py
 
@@ -49,7 +36,7 @@ jobs:
           cd dist
           zip -r "${{ env.PLUGIN_NAME }}.zip" "${{ env.PLUGIN_NAME }}"
 
-      - name: Upload artifact (for debugging / manual download)
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PLUGIN_NAME }}.zip
