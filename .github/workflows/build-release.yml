@@ -3,12 +3,15 @@ name: Build QGIS Plugin ZIP
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*"   # np. v1.0.0
   workflow_dispatch:
 
 env:
-  # NAZWA katalogu top-level w ZIP (PEP8/identifier — bez spacji i polskich znaków)
+  # NAZWA katalogu top-level w ZIP (musi być poprawnym identyfikatorem Pythona)
   PLUGIN_NAME: narzedziownik_app
+  # >>> TU PODAJ KATALOG ZE ŹRÓDŁAMI WTYCZKI (względem root repo)
+  # przykłady: ".", "plugin", "qgis/narzedziownik_app", "src/plugin"
+  PLUGIN_SRC_DIR: tomasz-gietkowski-geoanalityka/narzedziownik_app
 
 jobs:
   build:
@@ -19,46 +22,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Locate plugin source dir (with metadata.txt)
-        id: locate
-        shell: bash
+      - name: Show repo tree (debug)
         run: |
-          set -euo pipefail
-
           echo "Repo root listing:"
           ls -la
-
-          # Domyślnie zakładamy root repo
-          SRC_DIR="."
-
-          # Jeśli w root nie ma metadata.txt, spróbuj znaleźć najbliższy katalog który go ma
-          if [ ! -f "metadata.txt" ]; then
-            CANDIDATE="$(git ls-files '*/metadata.txt' | head -n1 || true)"
-            if [ -n "$CANDIDATE" ]; then
-              SRC_DIR="$(dirname "$CANDIDATE")"
-            fi
-          fi
-
-          if [ ! -f "$SRC_DIR/metadata.txt" ]; then
-            echo "Nie znaleziono metadata.txt ani w root, ani w podkatalogach." >&2
-            exit 1
-          fi
-
-          echo "Zidentyfikowano katalog źródłowy wtyczki: $SRC_DIR"
-          echo "src_dir=$SRC_DIR" >> "$GITHUB_OUTPUT"
-
-          echo "Listing katalogu źródłowego:"
-          ls -la "$SRC_DIR"
+          echo "Selected PLUGIN_SRC_DIR: ${{ env.PLUGIN_SRC_DIR }}"
+          echo "Listing of PLUGIN_SRC_DIR:"
+          ls -la "${{ env.PLUGIN_SRC_DIR }}"
 
       - name: Prepare staging
-        shell: bash
         run: |
           set -euo pipefail
           mkdir -p "dist/${{ env.PLUGIN_NAME }}"
 
-          SRC_DIR="${{ steps.locate.outputs.src_dir }}"
-
-          # Bardzo ważne: trailing slash po SRC_DIR, by skopiować *zawartość*, nie katalog jako podkatalog
+          # Kopiujemy ZAWARTOŚĆ katalogu źródeł do stagingu (uwaga na trailing slash!)
           rsync -av \
             --exclude '.git' \
             --exclude '.github' \
@@ -70,25 +47,20 @@ jobs:
             --exclude '*.zip' \
             --exclude '.gitignore' \
             --exclude '.gitattributes' \
-            "${SRC_DIR}/" "dist/${{ env.PLUGIN_NAME }}/"
+            "${{ env.PLUGIN_SRC_DIR }}/" "dist/${{ env.PLUGIN_NAME }}/"
 
-          echo "Listing staging (dist/${{ env.PLUGIN_NAME }}):"
+          echo "Staging listing:"
           ls -la "dist/${{ env.PLUGIN_NAME }}"
 
-          # sanity check – te pliki MUSZĄ być na poziomie top-level w stagingu
+          # sanity check – te pliki MUSZĄ istnieć w stagingu
           test -f "dist/${{ env.PLUGIN_NAME }}/metadata.txt"
-          test -f "dist/${{ env.PLUGIN_NAME }}/__init__.py" || {
-            echo "__init__.py nie znaleziony w katalogu staging! Upewnij się, że znajduje się obok metadata.txt." >&2
-            exit 1
-          }
+          test -f "dist/${{ env.PLUGIN_NAME }}/__init__.py"
 
-      - name: Create ZIP with correct top-level dir
-        shell: bash
+      - name: Create ZIP
         run: |
-          set -euo pipefail
           cd dist
           zip -r "${{ env.PLUGIN_NAME }}.zip" "${{ env.PLUGIN_NAME }}"
-          echo "Zawartość ZIP:"
+          echo "ZIP contents:"
           unzip -l "${{ env.PLUGIN_NAME }}.zip" | sed -n '1,200p'
 
       - name: Upload artifact
@@ -102,13 +74,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Download built ZIP
+      - name: Download ZIP
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.PLUGIN_NAME }}.zip
           path: dist
 
-      - name: Publish GitHub Release with ZIP
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/${{ env.PLUGIN_NAME }}.zip
