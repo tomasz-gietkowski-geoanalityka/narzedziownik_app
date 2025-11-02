@@ -10,4 +10,4 @@ tests/               export-ignore
 .gitignore           export-ignore
 .gitattributes       export-ignore
 README.md            export-ignore
-LICENCE              export-ignore
+LICENSE              export-ignore
