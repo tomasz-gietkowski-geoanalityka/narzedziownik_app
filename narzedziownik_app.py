@@ -41,8 +41,8 @@ class NarzedziownikAPP(QObject):
         act_save_temp.setIconVisibleInMenu(True)
         act_save_temp.triggered.connect(lambda: QTimer.singleShot(0, self._run_save_temp))
 
-        act_web = QAction(self._icon("geoanalityka_web.svg"), "Strona wtyczki na geoanalityka.pl", main)
-        act_web.setToolTip("Strona wtyczki na geoanalityka.pl")
+        act_web = QAction(self._icon("geoanalityka_web.svg"), "Przejdź do oficjalnej strony wtyczki", main)
+        act_web.setToolTip("Przejdź do oficjalnej strony wtyczki")
         act_web.setIconVisibleInMenu(True)
         act_web.triggered.connect(self._open_geoanalityka)
 
@@ -145,6 +145,6 @@ class NarzedziownikAPP(QObject):
 
     # ---------- Link ----------
     def _open_geoanalityka(self):
-        url = "https://geoanalityka.pl/wtyczka-geoanalityka/"
+        url = "https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik-app"
         webbrowser.open(url)
         self.iface.messageBar().pushInfo("Geoanalityka", f"Otworzono {url}")
