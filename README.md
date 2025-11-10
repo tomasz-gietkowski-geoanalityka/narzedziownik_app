@@ -1,8 +1,7 @@
 # Narzędziownik APP
+Wtyczka wspomaga tworzenie i wyświetlanie danych przestrzennych aktów planowania.
 
-Wtyczka wspomaga wyświetlanie danych przestrzennych aktów planowania.
-
-Jeśli masz skrypty lub pomysł na funkcjonalności wspomagające projektowanie i wyświetlanie danych aktów planowania przestrzennego, przyłącz się do nas jako współautor wtyczki.
+Jeśli masz skrypty lub pomysł na funkcjonalności wspomagające projektowanie i wyświetlanie danych aktów planowania przestrzennego, napisz do nas lub zakoduj i przyłącz się do nas jako współautor wtyczki.
 
 ## Autorzy
 Tomasz Giętkowski (Geoanalityka), Grzegorz Górniak  
