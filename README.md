@@ -1,21 +1,36 @@
 # Narzędziownik APP
+Wtyczka wspomaga tworzenie i wyświetlanie danych przestrzennych aktów planowania.
 
-Wtyczka wspomaga wyświetlanie danych przestrzennych aktów planowania.
-
-Jeśli masz skrypty lub pomysł na funkcjonalności wspomagające projektowanie i wyświetlanie danych aktów planowania przestrzennego, przyłącz się do nas jako współautor wtyczki.
+Jeśli masz skrypty lub pomysł na funkcjonalności wspomagające projektowanie i wyświetlanie danych aktów planowania przestrzennego, napisz do nas lub zakoduj i przyłącz się do nas jako współautor wtyczki.
 
 ## Autorzy
-Tomasz Giętkowski (Geoanalityka), Grzegorz Górniak  
+Tomasz Giętkowski (Geoanalityka), Grzegorz Górniak
 
-## Funkcje
-### Import
-- Import pliku GML Planu Ogólnego Gminy wraz ze stylizacją
-### Zapis
-- Zapis warstw tymczasowych z wybranej grupy do GPKG
+## Testowane na wersjach QGIS
+Linia LTR w wersjach 3.10 - 3.13
 
-## Historia wersji
-### version 1.0.0:
-Import GML Planu Ogólnego Gminy wraz ze stylizacją oraz zapis warstw do plików GPKG. Tworzy warstwy tymczasowe Aktu Planowania Przestrzennego, Obszaru Uzupełnienia Zabudowy, Obszaru Zabudowy Śródmiejskiej, w stylu określonym rozporządzeniem. W porównaniu z ręcznym dodaniem GML do QGIS wtyczka dodaje do obiektów stref informacje o profilach. 
+## Narzędziownik APP potrafi: 
+### EDYCJA
+ - Przeliczyć numerację w polach 'oznaczenie' i 'loklanyId', tak aby zaczynała się od 1 i nie zawierała luk w ciągłości numeracji.
+ - Połączyć wybrane na różnych warstwach poligony i wkleić do warstwy z włączoną edycją.
+ 
+### ZARZĄDZANIE WARSTWAMI
+ - Zaimportować GML POG i rozłożyć go na odpowiednie warstwy ze stylizacją.
+ - Stworzyć warstwy POG zgodne z schematem pól wymaganym przez Wtyczkę APP2.
+ - Przeszukiwać EZDiUP i podłączać zgłoszone tam WMS/WFS, co jest szczególnie przydatne na poziomie gmin.
+ - Dodać grupę warstw z najpopularniejszymi podkładami
+ - Zapisać na dysk GPKG z warstw tymczasowych z wybranej grupy warstw.
+ 
+### GENEROWANIE OUZ
+ - Przygotować budynki do OUZ.
+ - Stworzyć OUZ.
+ - Zweryfikować OUZ po optymalizacji.
 
 ### Kontakt
 tg@geoanalityka.pl
+
+### Dokumentacja
+https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
+
+### Strona wtyczki na GitHub
+https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik_app
