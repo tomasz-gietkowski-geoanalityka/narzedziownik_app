@@ -3,12 +3,11 @@ Narzędziownik APP - Wtyczka QGIS
 Informacje o autorach, repozytorium: https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik_app
 Dokumentacja: https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
 Licencja: GNU GPL v3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
-
 """
 
 # -*- coding: utf-8 -*-
 import re
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize, QTimer
 from qgis.PyQt.QtGui import QFont, QColor
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -41,7 +40,7 @@ def _build_tree_from_depth_list(parent_item: QTreeWidgetItem, items: list, forma
     for it in sorted(items, key=_key):
         path = it.get("path") or []
         title = it.get("title") or it.get("name") or ""
-        name  = it.get("name") or ""
+        name = it.get("name") or ""
         is_group = bool(it.get("is_group", False))
 
         # rodzic = węzeł o ścieżce bez ostatniego elementu; jeśli go nie ma, przyjmij parent_item
@@ -54,42 +53,30 @@ def _build_tree_from_depth_list(parent_item: QTreeWidgetItem, items: list, forma
         node = QTreeWidgetItem([label0, name])
 
         # Stylizacja wg poziomu zagnieżdżenia
-
-
-        # Stylizacja wg poziomu zagnieżdżenia
         depth = int(it.get("depth", 0))
         f0 = node.font(0)
         f1 = node.font(1)
 
-        # domyślnie zwykła czcionka
         color = None
-
         if depth == 1:
-            # poziom 1 – kursywa
             f0.setItalic(True)
             f1.setItalic(True)
         elif depth >= 2:
-            # poziom 2+ – kursywa szara
             f0.setItalic(True)
             f1.setItalic(True)
             color = QColor(Qt.gray)
 
-        # zastosuj styl
         node.setFont(0, f0)
         node.setFont(1, f1)
-
         if color:
             node.setForeground(0, color)
             node.setForeground(1, color)
-
-
 
         parent_node.addChild(node)
 
         # zapamiętaj węzeł pod pełną ścieżką
         nodes[tuple(path)] = node
         it["_qt_node"] = node
-
 
 
 def _merge_wms_items_by_path(lists: list):
@@ -104,7 +91,6 @@ def _merge_wms_items_by_path(lists: list):
         for it in items:
             key = tuple(it.get("path") or [])
             if not key:
-                # awaryjnie – traktuj pojedynczy węzeł bez path jak unikalny po tytule
                 key = ((it.get("title") or it.get("name") or ""),)
             if key in seen:
                 continue
@@ -118,7 +104,6 @@ def _merge_wms_items_by_path(lists: list):
 
     out.sort(key=_key)
     return out
-
 
 
 def _merge_wfs_pairs(lists: list):
@@ -135,7 +120,6 @@ def _merge_wfs_pairs(lists: list):
                 continue
             seen.add(key)
             out.append((t, n, is_group))
-    # sortuj alfabetycznie po title (fallback po name)
     out.sort(key=lambda p: ((p[0] or p[1] or "").casefold(), (p[1] or "").casefold()))
     return out
 
@@ -147,11 +131,19 @@ class EziudpServicesDialog(QDialog):
         super().__init__(parent)
         self.organ_name = organ_name
         self.setWindowTitle(f"EZiUDP – usługi dla: {organ_name}")
-        self.setMinimumSize(860, 700)   # min: 860×700
-        self.resize(860, 720)           # startowa wysokość ~700+
-        self.setSizeGripEnabled(True)   # uchwyt do zmiany rozmiaru
+        self.setMinimumSize(860, 700)
+        self.resize(860, 720)
+        self.setSizeGripEnabled(True)
+
         self._data = None
         self._summary = None
+
+        # stan workera i timera czekania
+        self.worker = None
+        self.wait_intervals = 0
+        self.fetch_timer = QTimer(self)
+        self.fetch_timer.setSingleShot(True)
+        self.fetch_timer.timeout.connect(self._on_fetch_timeout)
 
         v = QVBoxLayout(self)
 
@@ -228,25 +220,77 @@ class EziudpServicesDialog(QDialog):
         self.reject()
 
     def _rerender(self):
-        # przerysowanie z aktualnych danych (np. po przełączeniu „Pokaż poziom”)
         if getattr(self, "_data", None) is not None:
             self._on_result(self._data)
 
+    # ===== start pobierania usług =====
     def _fetch(self):
+        # zatrzymaj ewentualny poprzedni worker (jeśli okno otwierane ponownie)
+        self._stop_worker()
+
         self.tree.clear()
         self.lbl_status.setText("Pobieram usługi…")
+        self.prg.setRange(0, 100)
         self.prg.setValue(0)
+        self.btn_add_selected.setEnabled(False)
+
+        # licznik 10-sekundowych interwałów
+        self.wait_intervals = 0
+        self.fetch_timer.start(10_000)
+
+        # worker (QThread bez parenta w super().__init__)
         self.worker = ServicesWorker(self.organ_name, parent=self)
+
         self.worker.progress.connect(self.prg.setValue)
         self.worker.status.connect(self.lbl_status.setText)
         self.worker.result.connect(self._on_result)
         self.worker.error.connect(self._on_error)
+        self.worker.finished.connect(self._on_finished)
+
         self.worker.start()
+
+    def _on_fetch_timeout(self):
+        """
+        Wywoływane po ~10 s od startu pobierania usług.
+        Jeśli worker nadal działa → pytamy użytkownika, czy czekać dalej.
+        """
+        if self.worker is None:
+            return
+
+        self.wait_intervals += 1
+        seconds = self.wait_intervals * 10
+
+        reply = QMessageBox.question(
+            self,
+            "Czekać dalej?",
+            f"Pobieranie usług WMS/WFS z EZiUDP trwa już około {seconds} s.\n\n"
+            "Czy chcesz czekać kolejne 10 sekund?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.No:
+            self.lbl_status.setText("Przerywanie pobierania usług…")
+            self._stop_worker()
+        else:
+            # użytkownik chce czekać dalej → kolejne 10 s
+            self.fetch_timer.start(10_000)
 
     def _on_error(self, msg: str):
         QMessageBox.critical(self, "Błąd", msg)
         self.lbl_status.setText("Błąd.")
+        self.prg.setRange(0, 100)
         self.prg.setValue(0)
+        # sprzątamy po błędzie
+        self._stop_worker()
+
+    def _on_finished(self):
+        """
+        Worker zakończył się (sukces / błąd / abort).
+        """
+        self.fetch_timer.stop()
+        self.worker = None
+        # przy poprawnym wyniku _on_result już ustawi pasek i status
 
     # ===== agregacja (do trybu „scalonego”) =====
     def _summarize_services(self, data: dict):
@@ -313,13 +357,14 @@ class EziudpServicesDialog(QDialog):
 
         if not data:
             self.lbl_status.setText("Brak usług WMS/WFS dla tego organu.")
+            self.prg.setRange(0, 100)
             self.prg.setValue(100)
+            self.btn_add_selected.setEnabled(False)
             return
 
         bold_font = QFont()
         bold_font.setBold(True)
 
-        # Podsumowanie (używane m.in. do trybu „scalonego WMS/WFS”)
         summary = self._summarize_services(data)
         self._summary = summary
 
@@ -328,10 +373,13 @@ class EziudpServicesDialog(QDialog):
         use_flat_wms = (len(unique_wms_urls) == 1)
         use_flat_wfs = (len(unique_wfs_urls) == 1)
 
-        # funkcja formatująca etykietę (debug)
-        fmt = (lambda it, t: f"{t} (poziom {int(it.get('depth', 0))})") if self.chk_show_depth.isChecked() else (lambda it, t: t)
+        fmt = (
+            (lambda it, t: f"{t} (poziom {int(it.get('depth', 0))})")
+            if self.chk_show_depth.isChecked()
+            else (lambda it, t: t)
+        )
 
-        # === SCALONY WMS (jeden wspólny adres dla wszystkich zbiorów) ===
+        # SCALONY WMS
         if use_flat_wms and unique_wms_urls:
             wms_url = next(iter(unique_wms_urls))
             node_wms = QTreeWidgetItem(["Usługa przeglądania (WMS)", wms_url])
@@ -339,7 +387,6 @@ class EziudpServicesDialog(QDialog):
             node_wms.setFont(0, bold_font)
             self.tree.addTopLevelItem(node_wms)
 
-            # zbierz wszystkie listy items dla tego URL i zmerguj po path
             lists = []
             for ds_name, buckets in data.items():
                 items = buckets.get("WMS_LAYERS", {}).get(wms_url, [])
@@ -352,11 +399,8 @@ class EziudpServicesDialog(QDialog):
                         with_ds.append(j)
                     lists.append(with_ds)
             merged = _merge_wms_items_by_path(lists)
-
-            # zbuduj drzewo z formatowaniem
             _build_tree_from_depth_list(node_wms, merged, format_label=fmt)
 
-            # meta (kind,url,name,title) dla liści (name != "")
             def set_meta_rec(node: QTreeWidgetItem):
                 for i in range(node.childCount()):
                     ch = node.child(i)
@@ -370,10 +414,13 @@ class EziudpServicesDialog(QDialog):
                             "title": title,
                             "ds": None
                         })
+                        # kolor WMS: 217844ff
+                        ch.setForeground(0, QColor("#217844"))
+                        ch.setForeground(1, QColor("#217844"))
                     set_meta_rec(ch)
             set_meta_rec(node_wms)
 
-        # === SCALONY WFS (jeden wspólny adres dla wszystkich zbiorów) ===
+        # SCALONY WFS
         if use_flat_wfs and unique_wfs_urls:
             wfs_url = next(iter(unique_wfs_urls))
             node_wfs = QTreeWidgetItem(["Usługa pobierania (WFS)", wfs_url])
@@ -381,7 +428,6 @@ class EziudpServicesDialog(QDialog):
             node_wfs.setFont(0, bold_font)
             self.tree.addTopLevelItem(node_wfs)
 
-            # zbierz wszystkie pary dla tego URL i zmerguj po (name,title)
             lists = []
             for ds_name, buckets in data.items():
                 pairs = buckets.get("WFS_LAYERS", {}).get(wfs_url, [])
@@ -389,9 +435,12 @@ class EziudpServicesDialog(QDialog):
                     lists.append(pairs)
             merged_pairs = _merge_wfs_pairs(lists)
 
-            # wstaw elementy (WFS jest zwykle płaski – depth 0)
             for (title, name, is_group) in merged_pairs:
-                label0 = (f"{(title or name)} (poziom 0)") if self.chk_show_depth.isChecked() else (title or name)
+                label0 = (
+                    f"{(title or name)} (poziom 0)"
+                    if self.chk_show_depth.isChecked()
+                    else (title or name)
+                )
                 it = QTreeWidgetItem([label0, name])
                 it.setData(0, Qt.UserRole, {
                     "kind": "WFS",
@@ -400,6 +449,9 @@ class EziudpServicesDialog(QDialog):
                     "title": title or name,
                     "ds": None
                 })
+                # kolor WFS: 0051d3ff
+                it.setForeground(0, QColor("#0051d3"))
+                it.setForeground(1, QColor("#0051d3"))
                 if is_group:
                     f0 = it.font(0); f0.setItalic(True); it.setFont(0, f0)
                     f1 = it.font(1); f1.setItalic(True); it.setFont(1, f1)
@@ -408,18 +460,13 @@ class EziudpServicesDialog(QDialog):
             if not merged_pairs:
                 node_wfs.addChild(QTreeWidgetItem(["(brak typów lub błąd parsowania)", ""]))
 
-        # === WĘZŁY ZBIORÓW ===
+        # WĘZŁY ZBIORÓW
         for dataset_title in sorted(data.keys(), key=lambda s: s.casefold()):
             ds_has_wms = bool(data[dataset_title].get("WMS"))
             ds_has_wfs = bool(data[dataset_title].get("WFS"))
 
-            # Jeśli oba są scalone, a zbiór nie wnosi nic więcej → pominąć pusty zbiór
             if use_flat_wms and use_flat_wfs:
-                # zostaw zbiory, które mają np. różne adresy/sekcje (edge-case), lub gdy chcesz je pokazać jako „etykiety”
-                # Minimalny wariant: pokaż tylko, gdy ma choć jeden niescalony typ (tu: brak takich) → pomiń
                 continue
-
-            # Jeśli scalony jest tylko WMS, pokaż zbiory mające WFS (jak dotąd)
             if use_flat_wms and not ds_has_wfs:
                 continue
 
@@ -429,7 +476,6 @@ class EziudpServicesDialog(QDialog):
             node_dataset.setFont(0, bold_font)
             self.tree.addTopLevelItem(node_dataset)
 
-            # --- WMS pod zbiorem (tylko gdy NIE ma trybu „scalonego” WMS) ---
             if not use_flat_wms and ds_has_wms:
                 for url in data[dataset_title].get("WMS", []):
                     wms_node = QTreeWidgetItem(["Usługa przeglądania (WMS)", url])
@@ -439,7 +485,6 @@ class EziudpServicesDialog(QDialog):
                     items = data[dataset_title].get("WMS_LAYERS", {}).get(url, [])
                     _build_tree_from_depth_list(wms_node, items, format_label=fmt)
 
-                    # meta na liściach
                     def set_meta_rec2(node: QTreeWidgetItem, _url=url, _ds=dataset_title):
                         for i in range(node.childCount()):
                             ch = node.child(i)
@@ -453,10 +498,12 @@ class EziudpServicesDialog(QDialog):
                                     "title": title,
                                     "ds": _ds
                                 })
+                                # kolor WMS: 217844
+                                ch.setForeground(0, QColor("#217844"))
+                                ch.setForeground(1, QColor("#217844"))
                             set_meta_rec2(ch, _url, _ds)
                     set_meta_rec2(wms_node)
 
-            # --- WFS pod zbiorem (zwykle płasko); pomiń, gdy scalony WFS ---
             if not use_flat_wfs and ds_has_wfs:
                 for url in data[dataset_title].get("WFS", []):
                     wfs_node = QTreeWidgetItem(["Usługa pobierania (WFS)", url])
@@ -465,7 +512,11 @@ class EziudpServicesDialog(QDialog):
 
                     pairs = data[dataset_title].get("WFS_LAYERS", {}).get(url, [])
                     for (title, name, is_group) in pairs:
-                        label0 = (f"{(title or name)} (poziom 0)") if self.chk_show_depth.isChecked() else (title or name)
+                        label0 = (
+                            f"{(title or name)} (poziom 0)"
+                            if self.chk_show_depth.isChecked()
+                            else (title or name)
+                        )
                         it = QTreeWidgetItem([label0, name])
                         it.setData(0, Qt.UserRole, {
                             "kind": "WFS",
@@ -474,6 +525,9 @@ class EziudpServicesDialog(QDialog):
                             "title": title or name,
                             "ds": dataset_title
                         })
+                        # kolor WFS: 0051d3
+                        it.setForeground(0, QColor("#0051d3"))
+                        it.setForeground(1, QColor("#0051d3"))
                         if is_group:
                             f0 = it.font(0); f0.setItalic(True); it.setFont(0, f0)
                             f1 = it.font(1); f1.setItalic(True); it.setFont(1, f1)
@@ -482,11 +536,11 @@ class EziudpServicesDialog(QDialog):
                         wfs_node.addChild(QTreeWidgetItem(["(brak typów lub błąd parsowania)", ""]))
 
         self.tree.expandAll()
-        self.tree.expandAll()
-        self._update_add_button_state()
         self.tree.setColumnWidth(0, int(self.tree.viewport().width() * 0.5))
         self.tree.setColumnWidth(1, int(self.tree.viewport().width() * 0.5))
+
         self.lbl_status.setText("Gotowe.")
+        self.prg.setRange(0, 100)
         self.prg.setValue(100)
         self._update_add_button_state()
 
@@ -646,3 +700,36 @@ class EziudpServicesDialog(QDialog):
                         seen.add(key)
                         result.append(ch)
         return result
+
+    # ===== sprzątanie workera i timera =====
+    def _stop_worker(self):
+        """Bezpiecznie zatrzymuje działającego workera (jeśli jest)."""
+        if self.worker is not None:
+            try:
+                if hasattr(self.worker, "abort"):
+                    self.worker.abort()
+            except Exception:
+                pass
+
+            # odpinamy sygnały, żeby wątek nie strzelał w zamknięte okno
+            for sig_name in ("progress", "status", "result", "error", "finished"):
+                try:
+                    getattr(self.worker, sig_name).disconnect()
+                except Exception:
+                    pass
+
+            self.worker = None
+
+        self.fetch_timer.stop()
+        self.prg.setRange(0, 100)
+        self.prg.setValue(0)
+
+    def reject(self):
+        """Zamknięcie dialogu przyciskiem „Close”."""
+        self._stop_worker()
+        super().reject()
+
+    def closeEvent(self, event):
+        """Zamknięcie okna krzyżykiem X."""
+        self._stop_worker()
+        super().closeEvent(event)

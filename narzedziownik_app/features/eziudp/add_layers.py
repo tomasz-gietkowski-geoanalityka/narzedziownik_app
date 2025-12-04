@@ -20,20 +20,75 @@ from qgis.core import (
 
 # ------------------------- wspólne helpers -------------------------
 
+
 def _log(msg: str, level=Qgis.Info):
     QgsMessageLog.logMessage(msg, "Narzędziownik APP / EZiUDP", level)
 
+
 def _ensure_group_path(path: List[str]):
+    """
+    Zapewnia istnienie ścieżki grup w drzewie warstw.
+
+    Dodatkowa logika:
+    - jeśli tworzymy główną grupę "EZiUDP" bezpośrednio pod rootem
+      i istnieje grupa "Podkłady", to "EZiUDP" wstawiamy NAD "Podkłady".
+    - w pozostałych przypadkach zachowanie jak dotychczas.
+    """
     root = QgsProject.instance().layerTreeRoot()
     grp = root
-    for name in path or []:
-        child = grp.findGroup(name) if hasattr(grp, "findGroup") else None
+
+    for idx, name in enumerate(path or []):
+        # Specjalny przypadek tylko dla pierwszego poziomu "EZiUDP"
+        if grp is root and name == "EZiUDP":
+            # szukamy istniejącej grupy EZiUDP wśród dzieci root
+            existing = None
+            for ch in root.children():
+                # nie każdy node ma name(), ale dla grup ma
+                try:
+                    if ch.name() == name:
+                        existing = ch
+                        break
+                except AttributeError:
+                    continue
+
+            if existing is not None:
+                grp = existing
+                continue
+
+            # EZiUDP nie istnieje -> sprawdzamy, czy jest grupa "Podkłady"
+            podklady_index = -1
+            children = root.children()
+            for i, ch in enumerate(children):
+                try:
+                    if ch.name() == "Podkłady":
+                        podklady_index = i
+                        break
+                except AttributeError:
+                    continue
+
+            if podklady_index >= 0:
+                # wstaw EZiUDP nad "Podkłady"
+                grp = root.insertGroup(podklady_index, name)
+            else:
+                # brak "Podkłady" -> standardowo na końcu
+                grp = root.addGroup(name)
+
+            continue
+
+        # Dla kolejnych poziomów (np. "WMS", "WFS") i innych ścieżek
+        child = None
+        if hasattr(grp, "findGroup"):
+            # findGroup szuka rekurencyjnie, ale tu parentem jest już
+            # np. EZiUDP, więc znajdzie właściwą podgrupę
+            child = grp.findGroup(name)
         if not child:
             child = grp.addGroup(name)
         grp = child
+
     return grp
 
 # ------------------------- WMS -------------------------
+
 
 def add_wms_layer(href: str, layer_name: str, title: str,
                   preferred_crs: str = "EPSG:2180", group_path=None):
@@ -63,6 +118,7 @@ def add_wms_layer(href: str, layer_name: str, title: str,
 
 # ------------------------- WFS (po staremu – provider URI) -------------------------
 
+
 def _crs_variants(code: str) -> List[str]:
     """Zwraca preferowane warianty SRS do prób (EPSG:XXXX i URN)."""
     c = (code or "").upper().strip()
@@ -74,11 +130,13 @@ def _crs_variants(code: str) -> List[str]:
     epsg = m.group(1)
     return [f"EPSG:{epsg}", f"urn:ogc:def:crs:EPSG::{epsg}"]
 
+
 def _strip_query(url: str) -> str:
     """Zwraca scheme://host/path – bez ?query i #fragment (bez percent-encoding)."""
     url = url.split('#', 1)[0]
     url = url.split('?', 1)[0]
     return url.rstrip('?')
+
 
 def _build_provider_wfs_uri(
     endpoint: str,
@@ -113,6 +171,7 @@ def _build_provider_wfs_uri(
         f"preferCoordinatesForWfsT11='{pref_t11}' "
         f"restrictToRequestBBOX='{r_bbox}'"
     )
+
 
 def add_wfs_layer(
     href: str,

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*- 
 """
 Narzędziownik APP - Wtyczka QGIS
 Informacje o autorach, repozytorium: https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik_app
@@ -91,6 +91,14 @@ class NarzedziownikAPP(QObject):
         act_mpzp_eziudp = QAction(icon_ezi, "Dodaj warstwy z EZiUDP (WMS/WFS)…", main)
         act_mpzp_eziudp.triggered.connect(lambda: QTimer.singleShot(0, self._run_mpzp_eziudp))
 
+        # NOWA AKCJA: Dodaj grupę podkładów
+        act_base_layers = QAction(
+            self._icon("base-layers.svg"),
+            "Dodaj grupę podkładów",
+            main
+        )
+        act_base_layers.triggered.connect(lambda: QTimer.singleShot(0, self._run_base_layers))
+
         # --- MENU WTYCZKI ---
         plugins_menu = self.iface.pluginMenu()
         self._plugins_menu_root = QMenu(MENU_TITLE, plugins_menu)
@@ -119,6 +127,7 @@ class NarzedziownikAPP(QObject):
         self._plugins_menu_root.addAction(act_create_pog)
 
         self._plugins_menu_root.addAction(act_mpzp_eziudp)
+        self._plugins_menu_root.addAction(act_base_layers)
         self._plugins_menu_root.addAction(act_save_temp)
         self._plugins_menu_root.addSeparator()
         self._plugins_menu_root.addAction(act_web)
@@ -156,6 +165,7 @@ class NarzedziownikAPP(QObject):
         self._toolbutton_menu.addAction(act_create_pog)
 
         self._toolbutton_menu.addAction(act_mpzp_eziudp)
+        self._toolbutton_menu.addAction(act_base_layers)
         self._toolbutton_menu.addAction(act_save_temp)
         self._toolbutton_menu.addSeparator()
         self._toolbutton_menu.addAction(act_web)
@@ -242,6 +252,13 @@ class NarzedziownikAPP(QObject):
         try:
             from .features.eziudp import run as run_eziudp
             run_eziudp(self.iface.mainWindow())
+        except Exception:
+            traceback.print_exc()
+
+    def _run_base_layers(self):
+        try:
+            from .features.base_layers import run as run_base_layers
+            run_base_layers(self.iface, self.plugin_dir)
         except Exception:
             traceback.print_exc()
 
