@@ -1,0 +1,15 @@
+[
+  { "symbol": "SW", "nazwa": "strefa wielofunkcyjna z zabudową mieszkaniową wielorodzinną" },
+  { "symbol": "SJ", "nazwa": "strefa wielofunkcyjna z zabudową mieszkaniową jednorodzinną" },
+  { "symbol": "SZ", "nazwa": "strefa wielofunkcyjna z zabudową zagrodową" },
+  { "symbol": "SU", "nazwa": "strefa usługowa" },
+  { "symbol": "SH", "nazwa": "strefa handlu wielkopowierzchniowego" },
+  { "symbol": "SP", "nazwa": "strefa gospodarcza" },
+  { "symbol": "SR", "nazwa": "strefa produkcji rolniczej" },
+  { "symbol": "SI", "nazwa": "strefa infrastrukturalna" },
+  { "symbol": "SN", "nazwa": "strefa zieleni i rekreacji" },
+  { "symbol": "SC", "nazwa": "strefa cmentarzy" },
+  { "symbol": "SG", "nazwa": "strefa górnictwa" },
+  { "symbol": "SO", "nazwa": "strefa otwarta" },
+  { "symbol": "SK", "nazwa": "strefa komunikacyjna" }
+]

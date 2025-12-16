@@ -1,25 +1,15 @@
 [general]
 name=Narzędziownik APP
 title=Narzędziownik APP
-qgisMinimumVersion=3.40.8
+qgisMinimumVersion=3.40.1
 qgisMaximumVersion=3.40.15
-version=1.3.0
+version=1.4.0
 
 description=Wtyczka wspomaga tworzenie i przeglądanie danych przestrzennych aktów planowania.
-about=Narzędziownik APP potrafi:
- EDYCJA
- - Przeliczyć numerację w polach 'oznaczenie' i 'loklanyId', tak aby zaczynała się od 1 i nie zawierała luk w ciągłości numeracji.
- - Połączyć wybrane na różnych warstwach poligony i wkleić do warstwy z włączoną edycją.
- ZARZĄDZANIE WARSTWAMI
- - Zaimportować GML POG i rozłożyć go na odpowiednie warstwy ze stylizacją.
- - Stworzyć warstwy POG zgodne z schematem pól wymaganym przez Wtyczkę APP2.
- - Przeszukiwać EZDiUP i podłączać zgłoszone tam WMS/WFS, co jest szczególnie przydatne na poziomie gmin.
- - Dodać grupę warstwa z najpopularniejszymi podkładami.
- - Zapisać na dysk GPKG z warstw tymczasowych z wybranej grupy warstw.
- GENEROWANIE OUZ
- - Przygotować budynki do OUZ.
- - Stworzyć OUZ.
- - Zweryfikować OUZ po optymalizacji.
+about=Szczegóły funkcjonalności w dokumentacji https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
+
+description_en=The plugin supports the creation and browsing of spatial data for planning acts (based on regulations in force in Poland).
+about_en=Functional details can be found in the documentation at https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
 
 author=Tomasz Giętkowski (Geoanalityka), Grzegorz Górniak
 email=tg@geoanalityka.pl
@@ -35,6 +25,12 @@ homepage=https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik_app
 icon=narzedziownik_app.svg
 
 changelog=
+ Version 1.4.0:
+ * Dodano tworzenie raportu z parametrów stref.
+ * Dodano kontrolowanie poprawności symbolu i przeznaczeń profilu dodatkowego.
+ * Znacznie rozbudowano kontrolę i przeliczanie pola 'oznaczenie'.
+ * Dodano uzupełnianie pól wymaganych przy tworzeniu GML we Wtyczce APP"
+ * Wprowadzono wiele drobniejszych zmian w komunikatach i kontroli rezultatów.
  Version 1.3.0:
  * Dodano tworzenie grupy z najpopularniejszymi podkładami.
  * Dodano oznaczenie kolorem warstw WMS i WFS podczas dodawania z EZiUDP

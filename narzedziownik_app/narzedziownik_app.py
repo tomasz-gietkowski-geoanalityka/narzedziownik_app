@@ -27,10 +27,13 @@ class NarzedziownikAPP(QObject):
         self._toolbar = None
         self._toolbutton = None
         self._toolbutton_menu = None
-        self._toolbutton_menu_ouz = None
+        
+        # Referencje do menu
         self._plugins_menu_root = None
-        self._plugins_menu_ouz = None
         self._plugins_menu_edit = None
+        self._plugins_menu_strefa = None
+        self._plugins_menu_ouz = None
+        self._plugins_menu_gml = None
 
     # ---------- helpers ----------
     def _icon(self, name: str) -> QIcon:
@@ -45,7 +48,7 @@ class NarzedziownikAPP(QObject):
         act_import_gml = QAction(self._icon("import_gml.svg"), "Importuj POG GML…", main)
         act_import_gml.triggered.connect(lambda: QTimer.singleShot(0, self._run_import_gml))
 
-        # NOWA AKCJA: Utwórz szablony POG
+        # Utwórz szablony POG
         act_create_pog = QAction(
             self._icon("create_pog_tmp.svg"),
             "Utwórz szablony warstw POG…",
@@ -56,6 +59,15 @@ class NarzedziownikAPP(QObject):
 
         act_save_temp = QAction(self._icon("save_temp.svg"), "Zapisz warstwy tymczasowe z wybranej grupy…", main)
         act_save_temp.triggered.connect(lambda: QTimer.singleShot(0, self._run_save_temp))
+
+        # Uzupełnij pola dla GML APP…
+        act_gml_ready = QAction(
+            self._icon("add-gml-data.svg"),
+            "Uzupełnij pola dla GML APP…",
+            main
+        )
+        act_gml_ready.setToolTip("Uzupełnia wymagane pola w warstwach przed eksportem do GML APP")
+        act_gml_ready.triggered.connect(lambda: QTimer.singleShot(0, self._run_gml_ready))
 
         act_web = QAction(self._icon("github.svg"), "Przejdź do strony na GitHub…", main)
         act_web.triggered.connect(self._open_geoanalityka)
@@ -79,94 +91,133 @@ class NarzedziownikAPP(QObject):
         act_ouz_verify.triggered.connect(lambda: QTimer.singleShot(0, self._run_ouz_verify_optimization))
 
         # Scalanie
-        act_merge_sel = QAction(self._icon("merge-selected.svg"), "Połącz zaznaczone i przenieś na warstwę w edycji", main)
+        act_merge_sel = QAction(self._icon("merge-selected.svg"), "Połącz zaznaczone i przenieś na warstwę w edycji…", main)
         act_merge_sel.triggered.connect(lambda: QTimer.singleShot(0, self._run_merge_selected))
 
         # Recount
-        act_recount = QAction(self._icon("recount.svg"), "Przelicz oznaczenie obiektu", main)
+        act_recount = QAction(self._icon("recount.svg"), "Przelicz oznaczenie obiektu…", main)
         act_recount.triggered.connect(lambda: QTimer.singleShot(0, self._run_recount))
+
+        # --- STREFA PLANISTYCZNA ---
+        act_strefa = QAction(self._icon("strefa-verify.svg"), "Kontroluj symbol i profile stref…", main)
+        act_strefa.setToolTip("Weryfikacja / operacje dla Strefy Planistycznej")
+        act_strefa.triggered.connect(lambda: QTimer.singleShot(0, self._run_strefa_verify))
+
+        # >>> NOWE: Raport stref
+        act_raport_stref = QAction(self._icon("raport-stref.svg"), "Generuj raport stref…", main)
+        act_raport_stref.setToolTip("Generuje raport dla stref planistycznych (features/raport_stref.py)")
+        act_raport_stref.triggered.connect(lambda: QTimer.singleShot(0, self._run_raport_stref))
 
         # EZiUDP
         icon_ezi = self._icon("eziudp-mpzp.svg") or self._icon("narzedziownik_app.svg")
         act_mpzp_eziudp = QAction(icon_ezi, "Dodaj warstwy z EZiUDP (WMS/WFS)…", main)
         act_mpzp_eziudp.triggered.connect(lambda: QTimer.singleShot(0, self._run_mpzp_eziudp))
 
-        # NOWA AKCJA: Dodaj grupę podkładów
+        # Dodaj grupę podkładów
         act_base_layers = QAction(
             self._icon("base-layers.svg"),
-            "Dodaj grupę podkładów",
+            "Dodaj grupę podkładów…",
             main
         )
         act_base_layers.triggered.connect(lambda: QTimer.singleShot(0, self._run_base_layers))
 
-        # --- MENU WTYCZKI ---
+        # ================================
+        # BUDOWANIE STRUKTURY MENU
+        # ================================
         plugins_menu = self.iface.pluginMenu()
         self._plugins_menu_root = QMenu(MENU_TITLE, plugins_menu)
         self._plugins_menu_root.setIcon(self._icon("narzedziownik_app.svg"))
 
-        # Narzędzia edycji
+        # 1. Narzędzia edycji
         self._plugins_menu_edit = QMenu("Narzędzia edycji", self._plugins_menu_root)
         self._plugins_menu_edit.setIcon(self._icon("edit-tools.svg"))
         self._plugins_menu_edit.addAction(act_merge_sel)
-        self._plugins_menu_edit.addAction(act_recount)
+        # act_recount PRZENIESIONY
 
-        # OUZ
+        # 2. Strefa planistyczna
+        self._plugins_menu_strefa = QMenu("Strefa planistyczna", self._plugins_menu_root)
+        self._plugins_menu_strefa.setIcon(self._icon("strefa-planistyczna.svg"))
+        self._plugins_menu_strefa.addAction(act_strefa)
+        self._plugins_menu_strefa.addAction(act_raport_stref)  # <<< DODANO
+
+        # 3. OUZ
         self._plugins_menu_ouz = QMenu("Obszar uzupełnienia zabudowy", self._plugins_menu_root)
         self._plugins_menu_ouz.setIcon(self._icon("create-ouz.svg"))
         self._plugins_menu_ouz.addAction(act_kst)
         self._plugins_menu_ouz.addAction(act_ouz)
         self._plugins_menu_ouz.addAction(act_ouz_verify)
 
-        # Kolejność w menu głównym
+        # 4. Przygotowanie GML APP
+        self._plugins_menu_gml = QMenu("Przygotowanie do GML APP", self._plugins_menu_root)
+        self._plugins_menu_gml.setIcon(self._icon("ready-to-gml.svg"))
+        # DODANO act_recount na 1. miejscu
+        self._plugins_menu_gml.addAction(act_recount)
+        self._plugins_menu_gml.addAction(act_gml_ready)
+
+        # --- Dodawanie do głównego menu wtyczki w odpowiedniej kolejności ---
         self._plugins_menu_root.addMenu(self._plugins_menu_edit)
+        self._plugins_menu_root.addMenu(self._plugins_menu_strefa)
         self._plugins_menu_root.addMenu(self._plugins_menu_ouz)
+        self._plugins_menu_root.addMenu(self._plugins_menu_gml)
+        
         self._plugins_menu_root.addSeparator()
+        
+        # Pozostałe narzędzia
         self._plugins_menu_root.addAction(act_import_gml)
-
-        # NOWA POZYCJA tuż pod "Importuj POG GML…"
         self._plugins_menu_root.addAction(act_create_pog)
-
         self._plugins_menu_root.addAction(act_mpzp_eziudp)
         self._plugins_menu_root.addAction(act_base_layers)
         self._plugins_menu_root.addAction(act_save_temp)
+
         self._plugins_menu_root.addSeparator()
         self._plugins_menu_root.addAction(act_web)
         self._plugins_menu_root.addAction(act_docs)
 
         plugins_menu.addMenu(self._plugins_menu_root)
 
-        # --- PASEK NARZĘDZI ---
+        # ================================
+        # PASEK NARZĘDZI (TOOLBAR)
+        # ================================
         self._toolbar = self.iface.addToolBar("Narzędziownik APP")
         self._toolbar.setObjectName("Narzędziownik APP")
 
-        # Główna ikona
+        # Główna ikona rozwijana
         self._toolbutton = QToolButton(self._toolbar)
         self._toolbutton.setIcon(self._icon("narzedziownik_app.svg"))
         self._toolbutton.setPopupMode(QToolButton.InstantPopup)
 
         self._toolbutton_menu = QMenu(self._toolbutton)
 
-        # Menu edycji
+        # 1. Narzędzia edycji (Toolbar)
         menu_edit = self._toolbutton_menu.addMenu(self._icon("edit-tools.svg"), "Narzędzia edycji")
         menu_edit.addAction(act_merge_sel)
-        menu_edit.addAction(act_recount)
+        # act_recount PRZENIESIONY
 
-        # OUZ
+        # 2. Strefa planistyczna (Toolbar)
+        menu_strefa = self._toolbutton_menu.addMenu(self._icon("strefa-planistyczna.svg"), "Strefa planistyczna")
+        menu_strefa.addAction(act_strefa)
+        menu_strefa.addAction(act_raport_stref)  # <<< DODANO
+
+        # 3. OUZ (Toolbar)
         menu_ouz = self._toolbutton_menu.addMenu(self._icon("create-ouz.svg"), "Obszar uzupełnienia zabudowy")
         menu_ouz.addAction(act_kst)
         menu_ouz.addAction(act_ouz)
         menu_ouz.addAction(act_ouz_verify)
 
-        # POD GŁÓWNĄ IKONĄ — kolejność
+        # 4. Przygotowanie GML APP (Toolbar)
+        menu_gml = self._toolbutton_menu.addMenu(self._icon("ready-to-gml.svg"), "Przygotowanie do GML APP")
+        # DODANO act_recount na 1. miejscu
+        menu_gml.addAction(act_recount)
+        menu_gml.addAction(act_gml_ready)
+
+        # Separator i reszta
         self._toolbutton_menu.addSeparator()
         self._toolbutton_menu.addAction(act_import_gml)
-
-        # NOWE — TUŻ POD IMPORT GML
         self._toolbutton_menu.addAction(act_create_pog)
-
         self._toolbutton_menu.addAction(act_mpzp_eziudp)
         self._toolbutton_menu.addAction(act_base_layers)
         self._toolbutton_menu.addAction(act_save_temp)
+
         self._toolbutton_menu.addSeparator()
         self._toolbutton_menu.addAction(act_web)
         self._toolbutton_menu.addAction(act_docs)
@@ -174,6 +225,7 @@ class NarzedziownikAPP(QObject):
         self._toolbutton.setMenu(self._toolbutton_menu)
 
         self._toolbar.addWidget(self._toolbutton)
+        # Opcjonalnie: skrót do scalania na wierzchu
         self._toolbar.addAction(act_merge_sel)
 
     def unload(self):
@@ -213,6 +265,13 @@ class NarzedziownikAPP(QObject):
         except Exception:
             traceback.print_exc()
 
+    def _run_gml_ready(self):
+        try:
+            from .features.gml_ready import run as run_gml_ready
+            run_gml_ready(self.iface, self.plugin_dir)
+        except Exception:
+            traceback.print_exc()
+
     def _run_kst(self):
         try:
             from .features.buildings_kst_processor import run as run_kst
@@ -245,6 +304,21 @@ class NarzedziownikAPP(QObject):
         try:
             from .features.recount import run as run_recount
             run_recount(self.iface)
+        except Exception:
+            traceback.print_exc()
+
+    # --- STREFA PLANISTYCZNA ---
+    def _run_strefa_verify(self):
+        try:
+            from .features.strefa_verify import run as run_strefa
+            run_strefa(self.iface, self.plugin_dir)
+        except Exception:
+            traceback.print_exc()
+
+    def _run_raport_stref(self):
+        try:
+            from .features.raport_stref import run as run_raport
+            run_raport(self.iface, self.plugin_dir)
         except Exception:
             traceback.print_exc()
 

@@ -1,0 +1,156 @@
+[
+  {
+    "symbol": "SW",
+    "opis": [
+      "teren zabudowy mieszkaniowej jednorodzinnej",
+      "teren handlu wielkopowierzchniowego",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SJ",
+    "opis": [
+      "teren zabudowy letniskowej lub rekreacji indywidualnej",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SZ",
+    "opis": [
+      "teren wielkotowarowej produkcji rolnej",
+      "teren rolnictwa z zakazem zabudowy",
+      "teren biogazowni",
+      "teren usług",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SU",
+    "opis": [
+      "teren składów i magazynów",
+      "teren elektrowni słonecznej",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SH",
+    "opis": [
+      "teren usług",
+      "teren składów i magazynów",
+      "teren elektrowni słonecznej",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SP",
+    "opis": [
+      "teren usług",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SR",
+    "opis": [
+      "teren rolnictwa z zakazem zabudowy",
+      "teren biogazowni",
+      "teren elektrowni słonecznej",
+      "teren elektrowni wiatrowej",
+      "teren elektrowni wodnej",
+      "teren zieleni urządzonej",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SI",
+    "opis": [
+      "teren usług",
+      "teren produkcji",
+      "teren zieleni urządzonej",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SN",
+    "opis": [
+      "teren usług sportu i rekreacji",
+      "teren usług kultury i rozrywki",
+      "teren usług handlu detalicznego",
+      "teren usług gastronomii",
+      "teren usług turystyki",
+      "teren usług nauki",
+      "teren usług edukacji",
+      "teren usług zdrowia i pomocy społecznej",
+      "teren zieleni naturalnej",
+      "teren lasu"
+    ]
+  },
+  {
+    "symbol": "SC",
+    "opis": [
+      "teren usług kultu religijnego",
+      "teren usług handlu detalicznego",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SG",
+    "opis": [
+      "teren produkcji",
+      "teren usług handlu",
+      "teren usług rzemieślniczych",
+      "teren usług gastronomii",
+      "teren usług biurowych i administracji",
+      "teren usług nauki",
+      "teren zieleni urządzonej",
+      "teren zieleni naturalnej",
+      "teren lasu",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "SO",
+    "opis": [
+      "teren elektrowni wiatrowej",
+      "teren elektrowni słonecznej",
+      "teren elektrowni geotermalnej",
+      "teren elektrowni wodnej",
+      "teren biogazowni",
+      "teren zieleni urządzonej"
+    ]
+  },
+  {
+    "symbol": "SK",
+    "opis": [
+      "teren drogi zbiorczej",
+      "teren usług handlu detalicznego",
+      "teren usług gastronomii",
+      "teren usług turystyki",
+      "teren zieleni urządzonej",
+      "teren lasu",
+      "teren zieleni naturalnej",
+      "teren wód"
+    ]
+  },
+  {
+    "symbol": "wybierz",
+    "opis": ["NULL"]
+  }
+]

@@ -1,0 +1,46 @@
+[
+  {
+    "symbol": "SW",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SJ",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SZ",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SU",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SH",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SP",
+    "min_udzi_biol": 20
+  },
+  {
+    "symbol": "SR",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SI",
+    "min_udzi_biol": 20
+  },
+  {
+    "symbol": "SN",
+    "min_udzi_biol": 50
+  },
+  {
+    "symbol": "SC",
+    "min_udzi_biol": 30
+  },
+  {
+    "symbol": "SK",
+    "min_udzi_biol": 0
+  }
+]

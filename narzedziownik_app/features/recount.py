@@ -7,13 +7,30 @@ Licencja: GNU GPL v3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
 """
 
 import re
-from qgis.PyQt.QtWidgets import QMessageBox
-from qgis.core import (
-    QgsProject,
-    QgsVectorLayer,
-    edit,
+from collections import Counter
+
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import (
+    QMessageBox,
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QRadioButton,
+    QGroupBox,
+    QDialogButtonBox,
 )
 
+from qgis.core import (
+    QgsVectorLayer,
+    QgsFeature,
+    QgsProject,
+    QgsWkbTypes,
+)
+
+
+# ---------------------------------------------------------
+# HELPERY PÓL / TEKSTU
+# ---------------------------------------------------------
 
 def _find_lokalny_field(layer: QgsVectorLayer) -> str | None:
     """
@@ -30,17 +47,6 @@ def _find_lokalny_field(layer: QgsVectorLayer) -> str | None:
 def _collect_numbers_from_oznaczenie(layer: QgsVectorLayer, oznaczenie_field: str) -> dict:
     """
     Zbiera informacje o liczbowej części z pola 'oznaczenie'.
-
-    Zwraca:
-    {
-      fid: {
-        "raw": oryginalny_tekst,
-        "num": liczba_int_lub_None,
-        "prefix": część przed liczbą,
-        "suffix": część po liczbie,
-      },
-      ...
-    }
     """
     result = {}
 
@@ -75,207 +81,316 @@ def _compute_missing_numbers(nums: set[int]) -> list[int]:
     """
     Dla zbioru numerów zwraca listę brakujących wartości
     w zakresie 1..max(nums).
-
-    Numeracja jest traktowana jako poprawna tylko wtedy,
-    gdy zaczyna się od 1 i jest ciągła (1,2,3,…,N).
     """
     if not nums:
         return []
     end = max(nums)
-    # wymagamy pełnego ciągu od 1 do max
     missing = [n for n in range(1, end + 1) if n not in nums]
     return missing
 
 
-def _build_reindex_mapping(nums: set[int]) -> dict[int, int]:
+def _compute_missing_numbers_from_min(nums: set[int]) -> list[int]:
     """
-    Tworzy mapowanie stary_numer -> nowy_numer, tak aby numeracja była ciągła 1..N.
-
-    Przykład:
-      nums = {1, 2, 4, 5} -> mapping = {1: 1, 2: 2, 4: 3, 5: 4}
+    Dla zbioru numerów zwraca listę brakujących wartości
+    w zakresie min(nums)..max(nums).
     """
-    sorted_nums = sorted(nums)
-    mapping = {old: i + 1 for i, old in enumerate(sorted_nums)}
-    return mapping
+    if not nums:
+        return []
+    start = min(nums)
+    end = max(nums)
+    return [n for n in range(start, end + 1) if n not in nums]
 
 
-def _update_oznaczenie_and_lokalnyId(
+def _compute_missing_by_symbol(
     layer: QgsVectorLayer,
-    oznaczenie_field: str,
-    lokalny_field: str,
     oznaczenia_info: dict,
-    mapping: dict[int, int],
-):
+    symbol_field: str
+) -> dict[str, list[int]]:
     """
-    Aktualizuje pola 'oznaczenie' i 'lokalnyId' według mapowania stary_numer -> nowy_numer.
-
-    - 'oznaczenie': prefix + nowy_numer + suffix
-    - 'lokalnyId': np. "1POG-1OUZ" -> "1POG-3OUZ"
-       (zamiana tylko liczbowej części drugiego członu po myślniku)
+    Dla numeracji odrębnej wg symboli:
+    dla każdego symbolu osobno wyznacza brakujące liczby min..max(nums_symbol).
     """
-    ozn_idx = layer.fields().indexFromName(oznaczenie_field)
-    lok_idx = layer.fields().indexFromName(lokalny_field)
+    sym_idx = layer.fields().indexFromName(symbol_field)
+    if sym_idx == -1:
+        return {}
 
-    if ozn_idx == -1 or lok_idx == -1:
+    nums_by_symbol: dict[str, set[int]] = {}
+
+    for f in layer.getFeatures():
+        info = oznaczenia_info.get(f.id())
+        if not info:
+            continue
+        num = info["num"]
+        if num is None:
+            continue
+
+        sym_val = f[sym_idx]
+        sym_text = "" if sym_val is None else str(sym_val).strip()
+
+        s = nums_by_symbol.setdefault(sym_text, set())
+        s.add(num)
+
+    missing_by_symbol: dict[str, list[int]] = {}
+    for sym, sym_nums in nums_by_symbol.items():
+        missing = _compute_missing_numbers_from_min(sym_nums)
+        if missing:
+            missing_by_symbol[sym] = missing
+
+    return missing_by_symbol
+
+
+def _escape_html(text: str) -> str:
+    """
+    Proste escapowanie do HTML dla wartości wyświetlanych w QLabel/QMessageBox.
+    """
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
+# ---------------------------------------------------------
+# TWORZENIE WARSTWY TYMCZASOWEJ I DODAWANIE DO GRUPY
+# ---------------------------------------------------------
+
+def _create_temp_layer_like(layer: QgsVectorLayer, suffix: str) -> QgsVectorLayer:
+    """
+    Tworzy nową warstwę tymczasową (memory) o takim samym schemacie.
+    """
+    wkb = layer.wkbType()
+    geom_str = QgsWkbTypes.displayString(wkb)
+    crs_str = layer.crs().authid()
+
+    uri = f"{geom_str}?crs={crs_str}"
+    new_name = f"{layer.name()} {suffix}"
+
+    tmp_layer = QgsVectorLayer(uri, new_name, "memory")
+    pr = tmp_layer.dataProvider()
+    pr.addAttributes(layer.fields())
+    tmp_layer.updateFields()
+
+    return tmp_layer
+
+def _add_layer_to_do_gml_group(layer: QgsVectorLayer):
+    """
+    Dodaje warstwę do grupy 'DODAJ ATRYBUTY GML'. Jeśli grupa nie istnieje, tworzy ją.
+    """
+    root = QgsProject.instance().layerTreeRoot()
+    group = root.findGroup("DODAJ ATRYBUTY GML")
+    if group is None:
+        group = root.addGroup("DODAJ ATRYBUTY GML")
+    
+    QgsProject.instance().addMapLayer(layer, False)
+    group.addLayer(layer)
+
+
+# ---------------------------------------------------------
+# TRYBY PRZELICZANIA
+# ---------------------------------------------------------
+
+def _renumber_mode_1_to_temp(src_layer, dst_layer, oznaczenie_field, lokalny_field, symbol_field):
+    ozn_idx = dst_layer.fields().indexFromName(oznaczenie_field)
+    sym_idx = dst_layer.fields().indexFromName(symbol_field)
+
+    if ozn_idx == -1 or sym_idx == -1:
         return
 
-    with edit(layer):
-        for f in layer.getFeatures():
-            info = oznaczenia_info.get(f.id())
-            if not info:
-                continue
+    pr = dst_layer.dataProvider()
+    new_features = []
 
-            old_num = info["num"]
-            if old_num is None or old_num not in mapping:
-                continue
+    for row_num, f in enumerate(src_layer.getFeatures(), start=1):
+        new_f = QgsFeature(dst_layer.fields())
+        new_f.setGeometry(f.geometry())
+        attrs = f.attributes()
+        sym_val = attrs[sym_idx]
+        sym_text = "" if sym_val is None else str(sym_val).strip()
+        new_ozn = f"{row_num}{sym_text}"
+        attrs[ozn_idx] = new_ozn
+        new_f.setAttributes(attrs)
+        new_features.append(new_f)
 
-            new_num = mapping[old_num]
+    pr.addFeatures(new_features)
+    dst_layer.updateExtents()
 
-            # --- nowe oznaczenie ---
-            new_ozn = f"{info['prefix']}{new_num}{info['suffix']}"
-            layer.changeAttributeValue(f.id(), ozn_idx, new_ozn)
 
-            # --- nowe lokalnyId ---
-            lok_val = f[lokalny_field]
-            lok_text = "" if lok_val is None else str(lok_val).strip()
+def _renumber_mode_2_to_temp(src_layer, dst_layer, oznaczenie_field, lokalny_field, symbol_field):
+    ozn_idx = dst_layer.fields().indexFromName(oznaczenie_field)
+    sym_idx = dst_layer.fields().indexFromName(symbol_field)
 
-            # oczekiwany format mniej więcej: "1POG-1OUZ"
-            # -> prefix: "1POG-" ; digits: "1" ; suffix: "OUZ"
-            m = re.match(r"^([^-\n\r]+-)(\d+)(.*)$", lok_text)
-            if m:
-                new_lok = f"{m.group(1)}{new_num}{m.group(3)}"
-                layer.changeAttributeValue(f.id(), lok_idx, new_lok)
-            # jeśli format jest inny, nie modyfikujemy 'lokalnyId'
+    if ozn_idx == -1 or sym_idx == -1:
+        return
 
+    pr = dst_layer.dataProvider()
+    new_features = []
+    counters = {}
+
+    for f in src_layer.getFeatures():
+        new_f = QgsFeature(dst_layer.fields())
+        new_f.setGeometry(f.geometry())
+        attrs = f.attributes()
+        sym_val = attrs[sym_idx]
+        sym_text = "" if sym_val is None else str(sym_val).strip()
+        current = counters.get(sym_text, 0) + 1
+        counters[sym_text] = current
+        new_ozn = f"{current}{sym_text}"
+        attrs[ozn_idx] = new_ozn
+        new_f.setAttributes(attrs)
+        new_features.append(new_f)
+
+    pr.addFeatures(new_features)
+    dst_layer.updateExtents()
+
+
+# ---------------------------------------------------------
+# DIALOGI
+# ---------------------------------------------------------
+
+def _show_symbol_check_dialog(parent, has_nulls, null_count, layer_name_html):
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Kontrola pola 'symbol'")
+    dlg.setMinimumWidth(500)
+    layout = QVBoxLayout(dlg)
+
+    info_header = QLabel(f"Aktywna warstwa:<br><br>&nbsp;&nbsp;&nbsp;&nbsp;<b>{layer_name_html}</b><br><br>")
+    info_header.setTextFormat(Qt.RichText)
+    layout.addWidget(info_header)
+
+    if not has_nulls:
+        label = QLabel("✅<b>Wszystkie obiekty mają wartość w polu 'symbol'.</b>")
+        btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dlg)
+        btn_box.button(QDialogButtonBox.Ok).setText("Przelicz mimo to…")
+        btn_box.button(QDialogButtonBox.Cancel).setText("Anuluj")
+    else:
+        label = QLabel(f"<span style='color:#c0392b;'>❌<b>Istnieją obiekty bez symbolu ({null_count}).</b></span>")
+        btn_box = QDialogButtonBox(QDialogButtonBox.Close, parent=dlg)
+        btn_box.button(QDialogButtonBox.Close).setText("Zakończ")
+        
+    label.setWordWrap(True)
+    label.setTextFormat(Qt.RichText)
+    layout.addWidget(label)
+    layout.addWidget(btn_box)
+
+    btn_box.accepted.connect(dlg.accept)
+    btn_box.rejected.connect(dlg.reject)
+    if has_nulls: btn_box.button(QDialogButtonBox.Close).clicked.connect(dlg.reject)
+        
+    result = dlg.exec_()
+    return result == QDialog.Accepted and not has_nulls
+
+
+def _ask_numbering_scheme(parent, layer_name_html):
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Przeliczanie oznaczeń – sposób numeracji")
+    dlg.setMinimumWidth(500)
+    layout = QVBoxLayout(dlg)
+    info_header = QLabel(f"Aktywna warstwa:<br><br>&nbsp;&nbsp;&nbsp;&nbsp;<b>{layer_name_html}</b><br><br>")
+    info_header.setTextFormat(Qt.RichText)
+    layout.addWidget(info_header)
+    
+    group = QGroupBox("Wybierz stosowaną dotychczas metodę numeracji", dlg)
+    g_layout = QVBoxLayout(group)
+    rb1 = QRadioButton("1 – numeracja ciągła dla wszystkich symboli", group)
+    rb2 = QRadioButton("2 – numeracja odrębna dla poszczególnych symboli", group)
+    rb1.setChecked(True)
+    g_layout.addWidget(rb1); g_layout.addWidget(rb2)
+    layout.addWidget(group)
+
+    btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dlg)
+    layout.addWidget(btn_box)
+    btn_box.accepted.connect(dlg.accept); btn_box.rejected.connect(dlg.reject)
+
+    if dlg.exec_() != QDialog.Accepted: return None
+    return 1 if rb1.isChecked() else 2
+
+
+def _show_mode_dialog(parent, layer_name_html, summary_html):
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Przeliczanie oznaczeń")
+    dlg.setMinimumWidth(500)
+    layout = QVBoxLayout(dlg)
+    label = QLabel(f"Aktywna warstwa:<br><br>&nbsp;&nbsp;&nbsp;&nbsp;<b>{layer_name_html}</b><br><br>{summary_html}")
+    label.setTextFormat(Qt.RichText); label.setWordWrap(True)
+    layout.addWidget(label)
+
+    group = QGroupBox("Wybierz sposób przeliczenia:", dlg)
+    g_layout = QVBoxLayout(group)
+    rb1 = QRadioButton("1 – numeracja ciągła dla wszystkich symboli", group)
+    rb2 = QRadioButton("2 – numeracja odrębna dla poszczególnych symboli", group)
+    rb1.setChecked(True)
+    g_layout.addWidget(rb1); g_layout.addWidget(rb2)
+    layout.addWidget(group)
+
+    btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dlg)
+    layout.addWidget(btn_box); btn_box.accepted.connect(dlg.accept); btn_box.rejected.connect(dlg.reject)
+
+    if dlg.exec_() != QDialog.Accepted: return None
+    return 1 if rb1.isChecked() else 2
+
+
+# ---------------------------------------------------------
+# GŁÓWNA FUNKCJA
+# ---------------------------------------------------------
 
 def run(iface):
-    """
-    Główny punkt wejścia modułu.
-
-    1) Pobiera aktywną warstwę.
-    2) Sprawdza obecność pól 'oznaczenie' i 'lokalnyId'/'loklaneId'.
-    3) Analizuje ciąg numerów w polu 'oznaczenie' i wykrywa nieciągłości
-       (wymagana numeracja od 1).
-    4) Jeśli są luki – w jednym oknie pokazuje nazwę warstwy, brakujące numery i ostrzeżenia
-       oraz pyta, czy przeliczyć oznaczenia + lokalnyId.
-    """
-
     layer = iface.activeLayer()
-
     if not isinstance(layer, QgsVectorLayer):
-        QMessageBox.warning(
-            iface.mainWindow(),
-            "Przeliczanie oznaczeń",
-            (
-                "Aktywna warstwa nie jest warstwą wektorową.<br>"
-                "Wybierz odpowiednią warstwę i spróbuj ponownie."
-            ),
-        )
+        QMessageBox.warning(iface.mainWindow(), "Błąd", "Aktywna warstwa nie jest warstwą wektorową.")
         return
 
-    layer_name = layer.name()
-    layer_name_html = f"<span style='color:#8e44ad;'>{layer_name}</span>"
+    layer_name_html = f"<span style='color:#8e44ad;'>{layer.name()}</span>"
     field_names = [f.name() for f in layer.fields()]
 
-    # --- krok 1: sprawdzenie pól ---
+    if "symbol" not in field_names:
+        QMessageBox.warning(iface.mainWindow(), "Błąd", "Brak pola 'symbol'.")
+        return
+
+    null_count = sum(1 for f in layer.getFeatures() if not str(f["symbol"]).strip())
+    
+    if null_count > 0:
+        if not _show_symbol_check_dialog(iface.mainWindow(), True, null_count, layer_name_html):
+            return
+
+    scheme = _ask_numbering_scheme(iface.mainWindow(), layer_name_html)
+    if scheme is None: return
+
     oznaczenie_field = "oznaczenie"
-    if oznaczenie_field not in field_names:
-        QMessageBox.warning(
-            iface.mainWindow(),
-            "Przeliczanie oznaczeń",
-            (
-                "Aktywna warstwa "
-                f"{layer_name_html} nie zawiera pola „oznaczenie”.<br>"
-                "Wybierz poprawną warstwę i spróbuj ponownie."
-            ),
-        )
-        return
-
     lokalny_field = _find_lokalny_field(layer)
-    if lokalny_field is None:
-        QMessageBox.warning(
-            iface.mainWindow(),
-            "Przeliczanie oznaczeń",
-            (
-                "Aktywna warstwa "
-                f"{layer_name_html} nie zawiera wymaganego pola „lokalnyId”.<br>"
-                "Upewnij się, że warstwa posiada pole „lokalnyId” "
-                "i spróbuj ponownie."
-            ),
-        )
-        return
+    if lokalny_field is None: return
 
-    # --- krok 2: analiza ciągłości oznaczeń ---
     oznaczenia_info = _collect_numbers_from_oznaczenie(layer, oznaczenie_field)
     nums = {info["num"] for info in oznaczenia_info.values() if info["num"] is not None}
 
+    # ZMIANA: Skrypt nie przerywa pracy, jeśli nie ma liczb. 
+    # Przygotowuje podsumowanie informujące o braku dotychczasowej numeracji.
+    summary_parts = []
     if not nums:
-        QMessageBox.information(
-            iface.mainWindow(),
-            "Przeliczanie oznaczeń",
-            (
-                "Nie znaleziono żadnych wartości liczbowych w polu „oznaczenie”.<br>"
-                "Kontrola ciągłości numeracji została pominięta."
-            ),
-        )
-        return
+        summary_parts.append("⚠️ <b>Brak dotychczasowej części liczbowej w polach 'oznaczenie'.</b>")
+        summary_parts.append("Nowa numeracja zostanie nadana od wartości 1.")
+    else:
+        if scheme == 1:
+            missing = _compute_missing_numbers(nums)
+            if missing: summary_parts.append(f"❌ Brakuje: {', '.join(map(str, missing))}")
+        else:
+            m_bs = _compute_missing_by_symbol(layer, oznaczenia_info, "symbol")
+            if not m_bs:
+                summary_parts.append("✅ Numeracja wg symboli wydaje się ciągła.")
+            for s, m in m_bs.items(): summary_parts.append(f"❌ <b>{s}</b>: {', '.join(map(str, m))}")
 
-    missing = _compute_missing_numbers(nums)
+    mode = _show_mode_dialog(iface.mainWindow(), layer_name_html, "<br>".join(summary_parts))
+    if mode is None: return
 
-    if not missing:
-        QMessageBox.information(
-            iface.mainWindow(),
-            "Przeliczanie oznaczeń",
-            (
-                "Nie wykryto nieciągłości w numeracji pola „oznaczenie”.<br>"
-                "Działanie nie jest wymagane."
-            ),
-        )
-        return
+    tmp_layer = _create_temp_layer_like(layer, "(po naprawie oznaczen)")
 
-    # --- krok 3: jedno okno z nazwą warstwy, brakującymi numerami i ostrzeżeniami ---
-    missing_str = ", ".join(str(n) for n in missing)
-    missing_html = f"<span style='color:#c0392b;'>{missing_str}</span>"
+    if mode == 1:
+        _renumber_mode_1_to_temp(layer, tmp_layer, oznaczenie_field, lokalny_field, "symbol")
+    else:
+        _renumber_mode_2_to_temp(layer, tmp_layer, oznaczenie_field, lokalny_field, "symbol")
 
-    question_text = (
-        "Aktywna warstwa:<br><br>"
-        f"&nbsp;&nbsp;&nbsp;&nbsp;{layer_name_html}<br><br>"
-        "Wykryto brakujące wartości w liczbowej części pola „oznaczenie”<br>"
-        "(numeracja wymagana od 1, bez nieciągłości):<br><br>"
-        f"&nbsp;&nbsp;&nbsp;&nbsp;{missing_html}<br><br>"
-        "Przeliczenie nastąpi w atrybutach wskazanej warstwy.<br>"
-        "Jeśli chcesz wykonać kopię warstwy przed przeliczeniem, przerwij działanie.<br><br>"
-        "Czy chcesz przeliczyć oznaczenia tak, aby numeracja była ciągła (1..N)<br>"
-        "oraz zaktualizować odpowiednio pole „lokalnyId”?"
-    )
-
-    resp_fix = QMessageBox.question(
-        iface.mainWindow(),
-        "Przeliczanie oznaczeń",
-        question_text,
-        QMessageBox.Yes | QMessageBox.No,
-        QMessageBox.No,
-    )
-
-    # --- krok 4: jeśli „Nie” – przerwij ---
-    if resp_fix != QMessageBox.Yes:
-        return
-
-    # --- krok 5: przeliczenie oznaczeń i lokalnyId ---
-    mapping = _build_reindex_mapping(nums)
-    _update_oznaczenie_and_lokalnyId(
-        layer=layer,
-        oznaczenie_field=oznaczenie_field,
-        lokalny_field=lokalny_field,
-        oznaczenia_info=oznaczenia_info,
-        mapping=mapping,
-    )
+    _add_layer_to_do_gml_group(tmp_layer)
 
     QMessageBox.information(
         iface.mainWindow(),
-        "Przeliczanie oznaczeń",
-        (
-            "Przeliczanie pola „oznaczenie” oraz aktualizacja pola "
-            f"„{lokalny_field}” w warstwie {layer_name_html} zostały zakończone."
-        ),
+        "Sukces",
+        f"Przeliczono warstwę i dodano ją do grupy <b>DODAJ ATRYBUTY GML</b> jako:<br><br><b>{tmp_layer.name()}</b>"
     )
