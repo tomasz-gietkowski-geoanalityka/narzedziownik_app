@@ -3,7 +3,7 @@ name=Narzędziownik APP
 title=Narzędziownik APP
 qgisMinimumVersion=3.40.1
 qgisMaximumVersion=3.40.15
-version=1.4.0
+version=1.4.1
 
 description=Wtyczka wspomaga tworzenie i przeglądanie danych przestrzennych aktów planowania.
 about=Szczegóły funkcjonalności w dokumentacji https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
@@ -25,6 +25,8 @@ homepage=https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik_app
 icon=narzedziownik_app.svg
 
 changelog=
+ Version 1.4.1:
+ * Poprawiono generowanie raportu ze stref
  Version 1.4.0:
  * Dodano tworzenie raportu z parametrów stref.
  * Dodano kontrolowanie poprawności symbolu i przeznaczeń profilu dodatkowego.

@@ -3,12 +3,9 @@ Narzędziownik APP - Wtyczka QGIS
 Informacje o autorach, repozytorium: https://github.com/tomasz-gietkowski-geoanalityka/narzedziownik_app
 Dokumentacja: https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
 Licencja: GNU GPL v3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
-"""
 
-"""
 Generuje raport HTML dla zaznaczonej/aktywnej warstwy z geopaczki (GPKG),
 na podstawie pól zgodnych z arkuszem XLS i układu tabeli zgodnego ze wzorem DOCX.
-
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
