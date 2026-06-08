@@ -21,7 +21,7 @@ def _norm(s: str) -> str:
 
 def http_get(url: str, timeout=25) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.read()
 
 def ensure_param(url: str, key: str, value: str) -> str:

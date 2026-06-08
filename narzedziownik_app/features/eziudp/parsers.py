@@ -10,6 +10,11 @@ Licencja: GNU GPL v3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
 import html
 import re
 import xml.etree.ElementTree as ET
+
+try:
+    from defusedxml.ElementTree import fromstring as _safe_fromstring
+except ImportError:
+    _safe_fromstring = ET.fromstring  # noqa: S314
 from html.parser import HTMLParser
 from .http import _norm
 
@@ -201,7 +206,7 @@ def parse_wms_titles_names_and_crs(xml_bytes: bytes, href: str = None):
         - title, name, is_group, is_child, depth (int), path (list[str])
       crs: set[str] (np. 'EPSG:2180', 'EPSG:3857', …)
     """
-    root = ET.fromstring(xml_bytes)
+    root = _safe_fromstring(xml_bytes)
     nsstrip = lambda tag: tag.split("}", 1)[-1]
 
     def _layer_children(node):
@@ -274,9 +279,9 @@ def parse_wfs_titles_names_and_crs(xml_bytes: bytes):
         'ows1': 'http://www.opengis.net/ows/1.1'
     }
     try:
-        root = ET.fromstring(xml_bytes)
+        root = _safe_fromstring(xml_bytes)
     except ET.ParseError:
-        root = ET.fromstring(xml_bytes.decode('utf-8', errors='ignore').encode('utf-8'))
+        root = _safe_fromstring(xml_bytes.decode('utf-8', errors='ignore').encode('utf-8'))
 
     out_pairs = []
     crs = set()

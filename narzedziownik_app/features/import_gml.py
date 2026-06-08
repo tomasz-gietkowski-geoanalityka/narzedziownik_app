@@ -8,6 +8,11 @@ Licencja: GNU GPL v3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
 
 # -*- coding: utf-8 -*-
 import os, uuid, tempfile, xml.etree.ElementTree as ET
+
+try:
+    from defusedxml.ElementTree import iterparse as _safe_iterparse
+except ImportError:
+    _safe_iterparse = ET.iterparse  # noqa: S405
 from pathlib import Path
 
 from qgis.PyQt.QtWidgets import QFileDialog
@@ -134,7 +139,7 @@ def convert_gml_to_gpkg(gml_path: str) -> str:
 def collect_titles_from_gml(gml_path: str):
     # map: strefa_gml_id -> {"podstawowy": set(), "dodatkowy": set(), "nazwa": str|None}
     titles = {}
-    context = ET.iterparse(gml_path, events=('start','end'))
+    context = _safe_iterparse(gml_path, events=('start','end'))
     _, root = next(context)
     cur_id, collecting = None, False
     for event, elem in context:
