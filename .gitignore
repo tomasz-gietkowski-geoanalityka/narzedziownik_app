@@ -1,0 +1,17 @@
+# Skompilowany kod Pythona
+__pycache__/
+*.pyc
+
+# Pliki środowiska wirtualnego (jeśli używasz)
+venv/
+.venv/
+
+# Pliki konfiguracji VS Code (opcjonalnie, ale zalecane przy pracy w zespole)
+.vscode/
+
+# Pliki tymczasowe i logi QGIS
+*.log
+.qgis2/
+
+# makefile z lokalnymim ścieżkami (jeśli istnieje)
+Makefile

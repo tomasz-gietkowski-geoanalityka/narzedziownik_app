@@ -1,0 +1,80 @@
+[
+  {
+    "symbol": "SW",
+    "nazwa": "strefa wielofunkcyjna z zabudową mieszkaniową wielorodzinną",
+    "kolor": "rgb(154, 124, 100)",
+    "kolor_hex": "#9A7C64"
+  },
+  {
+    "symbol": "SJ",
+    "nazwa": "strefa wielofunkcyjna z zabudową mieszkaniową jednorodzinną",
+    "kolor": "rgb(217, 180, 115)",
+    "kolor_hex": "#D9B473"
+  },
+  {
+    "symbol": "SZ",
+    "nazwa": "strefa wielofunkcyjna z zabudową zagrodową",
+    "kolor": "rgb(255, 230, 171)",
+    "kolor_hex": "#FFE6AB"
+  },
+  {
+    "symbol": "SU",
+    "nazwa": "strefa usługowa",
+    "kolor": "rgb(255, 108, 105)",
+    "kolor_hex": "#FF6C69"
+  },
+  {
+    "symbol": "SH",
+    "nazwa": "strefa handlu wielkopowierzchniowego",
+    "kolor": "rgb(255, 132, 183)",
+    "kolor_hex": "#FF84B7"
+  },
+  {
+    "symbol": "SP",
+    "nazwa": "strefa gospodarcza",
+    "kolor": "rgb(175, 136, 222)",
+    "kolor_hex": "#AF88DE"
+  },
+  {
+    "symbol": "SR",
+    "nazwa": "strefa produkcji rolniczej",
+    "kolor": "rgb(254, 239, 100)",
+    "kolor_hex": "#FEEF64"
+  },
+  {
+    "symbol": "SI",
+    "nazwa": "strefa infrastrukturalna",
+    "kolor": "rgb(204, 204, 204)",
+    "kolor_hex": "#CCCCCC"
+  },
+  {
+    "symbol": "SN",
+    "nazwa": "strefa zieleni i rekreacji",
+    "kolor": "rgb(187, 245, 139)",
+    "kolor_hex": "#BBF58B"
+  },
+  {
+    "symbol": "SC",
+    "nazwa": "strefa cmentarzy",
+    "kolor": "rgb(148, 212, 196)",
+    "kolor_hex": "#94D4C4"
+  },
+  {
+    "symbol": "SG",
+    "nazwa": "strefa górnictwa",
+    "kolor": "rgb(252, 212, 255)",
+    "kolor_hex": "#FCD4FF"
+  },
+  {
+    "symbol": "SO",
+    "nazwa": "strefa otwarta",
+    "kolor": "rgb(227, 255, 199)",
+    "kolor_hex": "#E3FFC7"
+  },
+  {
+    "symbol": "SK",
+    "nazwa": "strefa komunikacyjna",
+    "kolor": "rgb(242, 242, 242)",
+    "kolor_hex": "#F2F2F2"
+  }
+]

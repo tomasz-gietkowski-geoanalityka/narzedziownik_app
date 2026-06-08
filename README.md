@@ -8,10 +8,10 @@ https://akademia.geoanalityka.pl/courses/narzedziownik-app-dokumentacja/
 Jeśli masz skrypty lub pomysł na funkcjonalności wspomagające projektowanie i wyświetlanie danych aktów planowania przestrzennego, napisz do nas lub zakoduj i przyłącz się do nas jako współautor wtyczki.
 
 ## Autorzy
-Tomasz Giętkowski (Geoanalityka), Grzegorz Górniak
+Tomasz Giętkowski (Geoanalityka), Grzegorz Górniak, Karol Tomczyk
 
 ## Testowane na wersjach QGIS
-Linia LTR w wersjach 3.40.1 - 3.40.13
+Linia LTR w wersjach 3.40.1 - 3.40.15
 
 ### Kontakt
 tg@geoanalityka.pl

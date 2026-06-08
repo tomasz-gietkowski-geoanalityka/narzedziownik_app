@@ -1,0 +1,69 @@
+[
+  {
+    "id": "osm_xyz",
+    "kind": "xyz",
+    "display_name": "OpenStreetMap",
+    "visible": true,
+    "uri": "type=xyz&url=https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+  },
+  {
+    "id": "ortho_std",
+    "kind": "wmts",
+    "display_name": "Ortofotomapa standardowa",
+    "visible": false,
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution",
+    "format": "image/jpeg",
+    "layers": "ORTOFOTOMAPA",
+    "styles": "default"
+  },
+  {
+    "id": "ortho_hr",
+    "kind": "wmts",
+    "display_name": "Ortofotomapa wysoka rozdzielczość",
+    "visible": false,
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/HighResolution",
+    "format": "image/jpeg",
+    "layers": "ORTOFOTOMAPA",
+    "styles": "default"
+  },
+  {
+    "id": "g2_mobile",
+    "kind": "wmts",
+    "display_name": "Mapa ogólnogeograficzna (BDOO, BDOT)",
+    "visible": false,
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/G2_MOBILE_500",
+    "format": "image/png",
+    "layers": "G2_MOBILE_500",
+    "styles": "default"
+  },
+  {
+    "id": "topo",
+    "kind": "wmts",
+    "display_name": "Mapa topograficzna (dawne wydania)",
+    "visible": false,
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/TOPO",
+    "format": "image/jpeg",
+    "layers": "MAPA%20TOPOGRAFICZNA",
+    "styles": "default"
+  },
+  {
+    "id": "shaded_relief",
+    "kind": "wmts",
+    "display_name": "Cieniowanie NMT 1 m",
+    "visible": false,
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMTS/ShadedRelief",
+    "format": "image/jpeg",
+    "layers": "Cieniowanie",
+    "styles": "default"
+  },
+  {
+    "id": "bdot10k",
+    "kind": "wmts",
+    "display_name": "Wizualizacja bazy BDOT10k",
+    "visible": false,
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/BDOT10k",
+    "format": "image/png",
+    "layers": "BDOT10k",
+    "styles": "default"
+  }
+]
