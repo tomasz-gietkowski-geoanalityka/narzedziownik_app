@@ -15,3 +15,6 @@ venv/
 
 # makefile z lokalnymim ścieżkami (jeśli istnieje)
 Makefile
+
+# Claude Code
+.claude/
