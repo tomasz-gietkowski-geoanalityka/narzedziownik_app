@@ -51,7 +51,7 @@
     "kind": "wmts",
     "display_name": "Cieniowanie NMT 1 m",
     "visible": false,
-    "base_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMTS/ShadedRelief",
+    "base_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMTS/ShadedRelief?service=WMTS&request=GetCapabilities",
     "format": "image/jpeg",
     "layers": "Cieniowanie",
     "styles": "default"
